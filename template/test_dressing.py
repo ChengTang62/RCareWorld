@@ -17,64 +17,73 @@ def _main(use_graphics=False):
 
         Check the website detailed rubric. After each run of the simulation, a json file will be generated in the current directory
         (~/.config/unity3d/RCareWorld/DressingPlayer).
-        The path may be different accotding to the OS and your computer configuration.
+        The path may be different according to the OS and your computer configuration.
         """
-            
+        
         print(text)
-    # Initialize the environment
+
+    # Initialize
     env = DressingEnv(graphics=use_graphics)
     print(env.attrs)
-
     robot = env.get_robot()
     env.step()
-
-    # Get the gripper attribute and open the gripper
     gripper = env.get_gripper()
-    gripper.GripperOpen()
-    env.step(300)
 
+    # Move to cloth
+    cloth = env.get_cloth()
+    cloth_position = cloth.data['position']
+    robot.IKTargetDoMove(
+        position=[cloth_position[0], cloth_position[1], cloth_position[2]+0.1],  
+        duration=2,
+        speed_based=False,
+    )
+    robot.IKTargetDoRotate(
+        rotation=[0, 45, -90], 
+        duration=2,
+        speed_based=False,
+    )
+    robot.WaitDo()
+    env.step()
+
+    # grab cloth
     gripper.GripperClose()
     env.step(300)
-
-    # Get the cloth attribute and perform a simulation step
-    cloth = env.get_cloth()
-    print(cloth.data)
-
-    # Camera operations: Attach a camera to the robot's hand
-    camera = env.get_camera()
-    camera.SetTransform(position=gripper.data['position'], rotation=[-90, 90, -90])
-    camera.SetParent(3158930)
-    camera.GetRGB(512, 512)
-    env.step()
-    rgb = np.frombuffer(camera.data["rgb"], dtype=np.uint8)
+    cloth.AddAttach(id=gripper.id, max_dis=0.2)
     env.step()
 
-    # Random positions and rotation
-    position1 = (1.5, 2.3, 0.6)
-    rotation = (0, 0, -69.858)
-
-    # Move the robot to the first position
+    # Move to person
+    right_arm = [cloth_position[0]-0.93, cloth_position[1]+0.2, cloth_position[2]+0.7]
     robot.IKTargetDoMove(
-        position=[position1[0], position1[1], position1[2]],
-        duration=2,
+        right_arm,  
+        duration=3,
         speed_based=False,
     )
-    robot.WaitDo()
-
-    rgb = cv2.imdecode(rgb, cv2.IMREAD_COLOR)
-    cv2.imwrite("rgb_hand.png", rgb)
-
     robot.IKTargetDoRotate(
-        rotation=[rotation[0], rotation[1], rotation[2]],
+        rotation=[0, 90, -90], 
         duration=2,
         speed_based=False,
     )
     robot.WaitDo()
-
-    # Retrieve cloth particle data after moving the robot
-    cloth.GetParticles()
     env.step()
 
+    robot.IKTargetDoMove(
+        position=[cloth_position[0]-0.87, cloth_position[1]+0.03, cloth_position[2]+0.7],  
+        duration=3,
+        speed_based=False,
+    )
+    robot.WaitDo()
+    env.step()
+
+    robot.IKTargetDoMove(
+        position=[cloth_position[0]-0.83, cloth_position[1]+0.03, cloth_position[2]+0.2],  
+        duration=3,
+        speed_based=False,
+    )
+    robot.WaitDo()
+    env.step()
+
+    gripper.GripperOpen()
+    cloth.RemoveAttach(id=gripper.id)
     env.step(300)
 
 if __name__ == "__main__":
